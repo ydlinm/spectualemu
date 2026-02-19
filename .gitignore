@@ -1,0 +1,7 @@
+﻿output_ignored_by_git/
+__pycache__/
+*.npz
+*.jpg
+*.png
+.DS_Store
+dataset/

@@ -1,0 +1,85 @@
+这是为你定制的 **Step 2: Source Modeling & Skin Interaction** 的 AI Coding Prompt。
+
+这一步的核心是将**“光路硬件参数”**（光纤、透镜）与**“生物物理参数”**（Sebum、纹理）结合，生成一个在进入棱镜之前的、理想的**皮肤表面高光谱光场 (Hyperspectral Light Field)**。
+
+---
+
+### **Prompt for AI Coding Assistant**
+
+**Role:** You are an Optical Simulation Engineer specializing in Biomedical Optics.
+**Task:** Implement `Step 2: Illumination Source & Skin Interaction` for the SSS simulation pipeline.
+**Goal:** Generate the "Ground Truth" Hyperspectral Image Cube at the skin surface plane (Pre-Dispersion), incorporating physical illumination constraints and skin heterogeneity.
+
+#### **Inputs:**
+
+1. `SpectralAssets` object (Output from Step 1, containing aligned ).
+2. `skin_texture.png` (Grayscale image, representing surface roughness/reflectance map).
+3. **Hardware Parameters:**
+* Light Source: Halogen Fiber Bundle ().
+* Collimation/Expansion Lens: Focal length .
+* Mask Geometry: Sparse Point Array (e.g.,  grid).
+
+
+
+#### **Requirements & Logic:**
+
+**1. Illumination Field Modeling (The "8mm + 25mm" Constraint):**
+
+* We are not assuming perfect uniform lighting. You must model the **Spatial Intensity Profile**  on the Mask plane.
+* **Physics Logic:** The 8mm fiber tip is imaged/expanded by the 25mm lens.
+* Assume a magnification  (based on previous optical design discussions).
+* The effective illuminated circle diameter .
+
+
+* **Implementation:** Create a 2D spatial mask `Illumination_Profile` that is:
+* High intensity in the center (r < 6mm).
+* Soft Gaussian falloff at the edges (Vignetting).
+* This `Illumination_Profile` will modulate the brightness of the Mask points (points at the edge will be dimmer).
+
+
+
+**2. Digital Skin Phantom Construction (The "Object"):**
+
+* **Geometry:** Resize `skin_texture.png` to the simulation resolution (e.g.,  pixels, where 1 pixel = ).
+* **Component 1: Surface Reflection Map ():**
+* Use the texture image to modulate the surface specular intensity.
+*  (set  for Fresnel reflection).
+
+
+* **Component 2: Subsurface Parameters ():**
+* **Sebum Modeling:** Use the `30% Water + 70% Lipid` logic defined in Step 1 to create the base absorption .
+* **Heterogeneity (Optional but recommended):** Add slight Perlin noise or use the texture to perturb the concentration of Sebum slightly () across the map to simulate realistic biological variation.
+
+
+
+**3. Physics Interaction Engine (The "Kernel"):**
+
+* Implement the light transport for **each active point** in the Mask:
+* **A. Surface Component ():**
+* Model as a Gaussian function with very small  (near-Dirac).
+* Intensity = .
+
+
+* **B. Subsurface Component ():**
+* Model using the **Farrell Dipole Diffusion Equation**:
+
+
+ (Standard diffusion formula).
+* Inputs:  (Sebum),  (Power Law).
+* Intensity = .
+
+
+
+**4. Superposition (The Output):**
+
+* Convolve (or superimpose) the source points with their respective Surface and Subsurface kernels.
+* **Output:** A 3D Hyperspectral Cube `Scene_HyperCube` with shape `[Height, Width, Wavelengths]`.
+* *Note:* This is the "Ideal" light field leaving the skin, BEFORE it hits the prism.
+
+
+
+**5. Verification:**
+
+* Print the dynamic range ratio between Surface () peak and Subsurface () tail to ensure physical realism (Surface should be significantly brighter).
+
+---

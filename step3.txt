@@ -1,0 +1,75 @@
+### **Step 3: Prism Dispersion & Sensor Imaging**
+
+**目标：** 将 Step 2 生成的“完美光场”，经过棱镜色散，投影到传感器上，并加上真实的噪声。
+
+以下是 **Step 3 的 Prompt**。请直接发给你的 AI Coder。
+
+---
+
+**Role:** Computational Imaging Engineer
+**Task:** Implement `Step 3: Prism Dispersion & Sensor Simulation` (The Final Forward Model).
+**Input:**
+
+1. `Scene_HyperCube` (from Step 2, shape `[H, W, n_wavelengths]`).
+2. `SpectralAssets` (dispersion data, sensor QE).
+3. **System Parameters:**
+* Sensor Resolution: Matches simulation (e.g.,  or larger).
+* Exposure Time:  (adjustable).
+* Full Well Capacity: .
+* Read Noise: .
+* Dark Current:  (High for InGaAs).
+
+
+
+#### **Requirements & Logic:**
+
+**1. Prism Dispersion Simulation (The "Smearing" Engine):**
+
+* **Physics:** The prism shifts the image of each wavelength slice along the X-axis.
+* **Algorithm:**
+* Create an empty accumulator `Sensor_Image_Ideal` (float32).
+* Iterate through each wavelength slice  in `Scene_HyperCube`:
+* Calculate shift  using `SpectralAssets.dispersion_shift`.
+* **Action:** Shift the 2D slice `Image[:, :, k]` by  pixels using `scipy.ndimage.shift` or bilinear interpolation (warp).
+* Accumulate: `Sensor_Image_Ideal += Shifted_Slice`.
+
+
+
+
+* **Outcome:** A 2D image where each dot is smeared into a **spectrum streak**.
+
+**2. Sensor Model (From Photons to Electrons):**
+
+* **Quantum Efficiency:** The input `Scene_HyperCube` already incorporated source intensity. Now assume it represents photon flux.
+* **Conversion:**
+* .
+* *(Note: Simplified QE application since we handled relative spectral intensity in Step 2. If QE curve exists, apply it here as a wavelength-dependent weight during accumulation).*
+
+
+
+**3. Noise & Saturation (The Reality Check):**
+
+* **Saturation:** `Img_{elec} = np.clip(Img_{elec}, 0, Full_Well_Capacity)`.
+* *Check:* The centers of the surface reflection spots () SHOULD saturate (turn white/flat). This is expected physics.
+
+
+* **Shot Noise:** .
+* **Dark Noise:** .
+* **Read Noise:** .
+* **Final ADC:** `Output_Image = Img_{elec} + N_{shot} + N_{dark} + N_{read}`.
+
+**4. Visualization:**
+
+* **Plot 1:** The final simulated sensor image (Grayscale).
+* *Expectation:* You should see parallel "rainbow streaks" (displayed in mono). The streaks should have bright heads (short wavelengths) and dim tails (long wavelengths), interrupted by the 1450nm water dip.
+
+
+* **Plot 2:** A horizontal cross-section profile of one streak.
+* *Expectation:* Show the intensity varying along the X-axis. Mark the position of the 1450nm dip.
+
+
+
+**5. Output:**
+
+* Save the `Final_Sensor_Image.npy` and `.png`.
+* This image is what we will feed into the Deep Learning model later.
