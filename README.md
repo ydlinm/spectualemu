@@ -143,10 +143,32 @@ git clone https://github.com/ydlinm/spectualemu.git
 cd spectualemu
 
 # 安装依赖（推荐使用虚拟环境）
-pip install numpy pandas matplotlib scipy pillow tqdm
+pip install -r requirements.txt
+
+# 或者手动安装
+# pip install numpy pandas matplotlib scipy pillow tqdm
 ```
 
 ### 🚀 快速开始
+
+#### 0. 项目结构
+
+```
+spectualemu/
+├── assets/                          # 输入数据目录
+│   ├── halogen_spectrum.csv        # 卤素灯光谱
+│   ├── sensor_qe.csv               # 传感器量子效率
+│   ├── water_mu_a.csv              # 水吸收系数
+│   └── lipid_mu_a.csv              # 脂质吸收系数
+├── step1_implementation.py         # Step 1: 数据标准化
+├── step2_implementation.py         # Step 2: 场景生成
+├── step3_implementation.py         # Step 3: 传感器成像
+├── step4_implementation.py         # Step 4: 批量数据生成
+├── verify_step3.py                 # 验证脚本
+├── analyze_dataset.py              # 数据分析脚本
+├── requirements.txt                # Python依赖
+└── README.md                       # 本文档
+```
 
 #### 1. 准备输入数据
 
@@ -425,10 +447,32 @@ git clone https://github.com/ydlinm/spectualemu.git
 cd spectualemu
 
 # Install dependencies (virtual environment recommended)
-pip install numpy pandas matplotlib scipy pillow tqdm
+pip install -r requirements.txt
+
+# Or install manually
+# pip install numpy pandas matplotlib scipy pillow tqdm
 ```
 
 ### 🚀 Quick Start
+
+#### 0. Project Structure
+
+```
+spectualemu/
+├── assets/                          # Input data directory
+│   ├── halogen_spectrum.csv        # Halogen lamp spectrum
+│   ├── sensor_qe.csv               # Sensor quantum efficiency
+│   ├── water_mu_a.csv              # Water absorption coefficient
+│   └── lipid_mu_a.csv              # Lipid absorption coefficient
+├── step1_implementation.py         # Step 1: Data standardization
+├── step2_implementation.py         # Step 2: Scene generation
+├── step3_implementation.py         # Step 3: Sensor imaging
+├── step4_implementation.py         # Step 4: Batch data generation
+├── verify_step3.py                 # Verification script
+├── analyze_dataset.py              # Data analysis script
+├── requirements.txt                # Python dependencies
+└── README.md                       # This document
+```
 
 #### 1. Prepare Input Data
 
