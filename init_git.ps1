@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 
 function Write-Step {
     param([string]$Message)
@@ -132,10 +132,7 @@ dataset/
     Invoke-Git -Args @('branch', '-M', 'main')
 
     # 4) Prompt for remote URL and push
-    $remoteUrl = Read-Host "Enter remote repository URL (e.g., https://github.com/username/repo.git)"
-    if ([string]::IsNullOrWhiteSpace($remoteUrl)) {
-        throw "Remote repository URL is empty. Aborting remote setup."
-    }
+    $remoteUrl = 'https://github.com/ydlinm/spectualemu.git'
 
     Write-Step "Configuring remote 'origin'..."
     $existingRemotes = (& git remote)
@@ -161,3 +158,5 @@ catch {
     Write-Fail $_.Exception.Message
     exit 1
 }
+
+

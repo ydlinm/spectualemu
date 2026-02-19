@@ -458,14 +458,63 @@ class DataFactory:
 
 
 if __name__ == "__main__":
+    import argparse
+    import concurrent.futures
+    import time
+
+    # 1. 命令行参数设置
+    parser = argparse.ArgumentParser(description="Spectral SSS Data Factory")
+    parser.add_argument("--num_samples", type=int, default=10, help="要生成的样本总数")
+    parser.add_argument("--output_dir", type=str, default="output/datasets", help="数据保存路径")
+    parser.add_argument("--workers", type=int, default=4, help="使用的CPU核心数(进程数)")
+    args = parser.parse_args()
+
+    # 2. 初始化工厂 (只初始化一次，避免重复读取CSV)
+    print(f"[*] 初始化物理仿真引擎... (保存至 {args.output_dir})")
     factory = DataFactory(
         assets_path="output/step1_standardized_data.csv",
         image_size=256,
-        output_dir="output/datasets",
+        output_dir=args.output_dir,
         sensor_max_adu=4095,
         base_gain=4500.0,
         grid_shape=(7, 7),
         pitch_pixels=30,
     )
-    factory.generate_batch(num_samples=5, seed_offset=0)
-    factory.visualize_sample(sample_id=0, save_name="step4_validation_sample0.png")
+
+    # 3. 如果只是少量测试，画一张图看看
+    if args.num_samples <= 10:
+        factory.generate_batch(num_samples=args.num_samples, seed_offset=0)
+        factory.visualize_sample(sample_id=0, save_name="step4_validation_sample0.png")
+        print("[*] 小批量测试完成，已保存验证图片。")
+    
+    # 4. 海量生成模式：启动多进程加速
+    else:
+        print(f"[*] 🚀 启动海量生成模式: 共 {args.num_samples} 张, 开启 {args.workers} 个进程加速...")
+        start_time = time.time()
+        
+        # 将总任务拆分成多个小批次
+        samples_per_worker = args.num_samples // args.workers
+        futures = []
+        
+        # 注意：多进程下我们不在这里写全局 JSON，只生成 npz
+        with concurrent.futures.ProcessPoolExecutor(max_workers=args.workers) as executor:
+            for w in range(args.workers):
+                # 每个进程负责一个独立的 seed_offset 范围，防止重名和随机数冲突
+                offset = w * samples_per_worker
+                # 最后一个 worker 处理余数
+                batch_size = samples_per_worker + (args.num_samples % args.workers if w == args.workers - 1 else 0)
+                
+                # 提交任务到后台进程
+                futures.append(
+                    executor.submit(factory.generate_batch, num_samples=batch_size, seed_offset=offset)
+                )
+            
+            # 等待所有进程完成
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    future.result() # 捕获可能出现的报错
+                except Exception as e:
+                    print(f"[!] 进程发生错误: {e}")
+
+        elapsed = time.time() - start_time
+        print(f"[*] ✅ 所有数据生成完毕！耗时: {elapsed/60:.2f} 分钟。速度: {args.num_samples/elapsed:.2f} 张/秒。")
