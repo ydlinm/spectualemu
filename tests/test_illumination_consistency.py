@@ -38,6 +38,7 @@ class IlluminationConsistencyTests(unittest.TestCase):
         self.assertTrue(np.isfinite(beam.get_map()).all())
         # The 4 mm radius is outside the diagonal of the finite 3.84 mm field.
         self.assertGreater(beam.get_map().min(), 0.5)
+        self.assertAlmostEqual(beam.get_map()[-1, -1], 0.728, places=3)
 
     def test_step2_and_step4_use_the_same_beam_map(self):
         config = IlluminationConfig()
