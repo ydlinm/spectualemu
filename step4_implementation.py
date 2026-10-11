@@ -11,7 +11,13 @@ from PIL import Image
 import os
 from datetime import datetime
 import json
-from tqdm import tqdm
+try:
+    from tqdm import tqdm
+except ImportError:  # Optional dependency; batch generation still works without a progress bar.
+    def tqdm(iterable, *args, **kwargs):
+        return iterable
+
+from illumination import IlluminationConfig, gaussian_beam_profile
 
 
 class SpectralAssets:
@@ -104,12 +110,23 @@ class DataFactory:
         base_gain=4500.0,
         grid_shape=(7, 7),
         pitch_pixels=30,
+        pixel_size_um=15.0,
+        beam_half_intensity_radius_mm=4.0,
     ):
         self.assets = SpectralAssets(assets_path)
         self.image_size = image_size
         self.output_dir = output_dir
         self.sensor_max_adu = sensor_max_adu
         self.base_gain = base_gain
+        self.pixel_size_um = float(pixel_size_um)
+        self.beam_half_intensity_radius_mm = float(beam_half_intensity_radius_mm)
+        self.illumination_config = IlluminationConfig(
+            image_size=image_size,
+            pixel_size_um=self.pixel_size_um,
+            beam_half_intensity_radius_mm=self.beam_half_intensity_radius_mm,
+            grid_shape=grid_shape,
+            pitch_pixels=pitch_pixels,
+        )
         os.makedirs(output_dir, exist_ok=True)
 
         self.multi_pore_mask = MultiPoreMask(
@@ -132,15 +149,12 @@ class DataFactory:
             self.texture_source = Image.fromarray((noise * 255).astype(np.uint8))
 
     def _build_beam_profile(self):
-        h = self.image_size
-        w = self.image_size
-        cy = (h - 1) / 2.0
-        cx = (w - 1) / 2.0
-        yy, xx = np.ogrid[:h, :w]
-        rr = np.sqrt((yy - cy) ** 2 + (xx - cx) ** 2)
-        sigma = 0.42 * min(h, w)
-        beam = np.exp(-(rr / sigma) ** 2).astype(np.float32)
-        return beam
+        return gaussian_beam_profile(
+            image_size=self.image_size,
+            pixel_size_um=self.pixel_size_um,
+            half_intensity_radius_mm=self.beam_half_intensity_radius_mm,
+            profile_type="gaussian",
+        )
 
     def _gaussian_psf(self, size=11, sigma=1.2):
         half = size // 2
@@ -416,6 +430,11 @@ class DataFactory:
                     "base_gain": float(self.base_gain),
                     "pore_grid": list(self.multi_pore_mask.grid_shape),
                     "pore_pitch_pixels": int(self.multi_pore_mask.pitch_pixels),
+                    "pixel_size_um": float(self.pixel_size_um),
+                    "field_width_mm": float(self.illumination_config.field_width_mm),
+                    "beam_half_intensity_radius_mm": float(self.beam_half_intensity_radius_mm),
+                    "beam_sigma_mm": float(self.illumination_config.beam_sigma_mm),
+                    "pore_pitch_mm": float(self.illumination_config.pitch_mm),
                     "samples": metadata_list,
                 },
                 f,
@@ -479,6 +498,8 @@ if __name__ == "__main__":
         base_gain=4500.0,
         grid_shape=(7, 7),
         pitch_pixels=30,
+        pixel_size_um=15.0,
+        beam_half_intensity_radius_mm=4.0,
     )
 
     # 3. 如果只是少量测试，画一张图看看
