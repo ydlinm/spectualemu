@@ -1024,6 +1024,8 @@ def main():
         'field_width_mm': illumination_config.field_width_mm,
         'beam_half_intensity_radius_mm': illumination_config.beam_half_intensity_radius_mm,
         'beam_sigma_mm': beam_profile.sigma_mm,
+        'field_diagonal_radius_mm': illumination_config.field_diagonal_radius_mm,
+        'corner_beam_intensity': float(beam_profile.get_map()[-1, -1]),
         'pore_pitch_mm': illumination_config.pitch_mm,
         'num_pores': len(multi_pore_mask.get_pores()),
         'pore_grid': multi_pore_mask.grid_shape,
