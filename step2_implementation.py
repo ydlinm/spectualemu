@@ -866,7 +866,7 @@ def generate_report(scene_hypercube, spectral_assets, beam_profile, multi_pore_m
 | 参数 | 值 |
 |------|-----|
 | 孔径数量 | {len(pores)} ({multi_pore_mask.grid_shape[0]}×{multi_pore_mask.grid_shape[1]}) |
-| 孔径间距 | 30 px |
+| 孔径间距 | {metadata['pore_pitch_pixels']} px ({metadata['pore_pitch_mm']:.3f} mm) |
 | 光束剖面 | {beam_profile.profile_type} |
 | 物理约束 | 4mm处50%强度 |
 | 像素大小 | {metadata['pixel_size_um']} μm (0.015 mm) |
@@ -878,7 +878,7 @@ def generate_report(scene_hypercube, spectral_assets, beam_profile, multi_pore_m
 ## 🔬 关键改进
 
 ### 1. 光束渐晕修复
-- ✓ 在4mm处10%强度 (物理约束)
+- ✓ 4mm处50%强度（解析定义；有限采样域不达到该半径）
 - ✓ 中心孔径获得充分照明
 - ✓ 边缘孔径获得减弱照明
 
@@ -980,9 +980,18 @@ def main():
     print(f"  物理参数: 像素大小 {pixel_size_um} μm, 分辨率 {image_size}×{image_size}")
     
     # 修复: 使用物理约束 (4mm处50%强度) 而非固定光纤直径像素数
-    beam_profile = BeamProfile(image_size=image_size, pixel_size_um=pixel_size_um, profile_type='gaussian')
-    
-    multi_pore_mask = MultiPoreMask(grid_shape=(7, 7), pitch_pixels=30, image_size=image_size)
+    beam_profile = BeamProfile(
+        image_size=image_size,
+        pixel_size_um=pixel_size_um,
+        profile_type='gaussian',
+        half_intensity_radius_mm=illumination_config.beam_half_intensity_radius_mm,
+    )
+
+    multi_pore_mask = MultiPoreMask(
+        grid_shape=illumination_config.grid_shape,
+        pitch_pixels=illumination_config.pitch_pixels,
+        image_size=image_size,
+    )
     skin_phantom = SkinPhantom('assets/skin_texture.png', sim_resolution=image_size, pixel_size_um=pixel_size_um)
     psf_kernel = DualPSFKernel(
         spectral_assets.wavelengths,
@@ -1027,6 +1036,7 @@ def main():
         'field_diagonal_radius_mm': illumination_config.field_diagonal_radius_mm,
         'corner_beam_intensity': float(beam_profile.get_map()[-1, -1]),
         'pore_pitch_mm': illumination_config.pitch_mm,
+        'pore_pitch_pixels': illumination_config.pitch_pixels,
         'num_pores': len(multi_pore_mask.get_pores()),
         'pore_grid': multi_pore_mask.grid_shape,
         'beam_profile_type': beam_profile.profile_type,
