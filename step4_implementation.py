@@ -434,6 +434,8 @@ class DataFactory:
                     "field_width_mm": float(self.illumination_config.field_width_mm),
                     "beam_half_intensity_radius_mm": float(self.beam_half_intensity_radius_mm),
                     "beam_sigma_mm": float(self.illumination_config.beam_sigma_mm),
+                    "field_diagonal_radius_mm": float(self.illumination_config.field_diagonal_radius_mm),
+                    "corner_beam_intensity": float(self.beam_map[-1, -1]),
                     "pore_pitch_mm": float(self.illumination_config.pitch_mm),
                     "samples": metadata_list,
                 },
