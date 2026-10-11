@@ -492,16 +492,17 @@ if __name__ == "__main__":
 
     # 2. 初始化工厂 (只初始化一次，避免重复读取CSV)
     print(f"[*] 初始化物理仿真引擎... (保存至 {args.output_dir})")
+    illumination_config = IlluminationConfig()
     factory = DataFactory(
         assets_path="output/step1_standardized_data.csv",
-        image_size=256,
+        image_size=illumination_config.image_size,
         output_dir=args.output_dir,
         sensor_max_adu=4095,
         base_gain=4500.0,
-        grid_shape=(7, 7),
-        pitch_pixels=30,
-        pixel_size_um=15.0,
-        beam_half_intensity_radius_mm=4.0,
+        grid_shape=illumination_config.grid_shape,
+        pitch_pixels=illumination_config.pitch_pixels,
+        pixel_size_um=illumination_config.pixel_size_um,
+        beam_half_intensity_radius_mm=illumination_config.beam_half_intensity_radius_mm,
     )
 
     # 3. 如果只是少量测试，画一张图看看
