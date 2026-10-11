@@ -22,6 +22,8 @@ import os
 from datetime import datetime
 import json
 
+from illumination import IlluminationConfig, gaussian_beam_profile
+
 # ================================
 # 1. 加载 Step 1 的标准化数据
 # ================================
@@ -88,57 +90,63 @@ class MultiPoreMask:
 
 
 class BeamProfile:
-    """
-    光束强度剖面 (Beam Intensity Profile)
-    模拟光纤束的非均匀照明
-    物理约束: 在半径4mm处衰减到50%强度 (8mm光纤面)
-    """
-    def __init__(self, image_size=256, pixel_size_um=15, profile_type='gaussian'):
-        """
-        Args:
-            image_size: 图像分辨率 (像素)
-            pixel_size_um: 每像素的物理尺寸 (微米) - 默认15 μm = 0.015 mm
-            profile_type: 'gaussian' 或 'supergaussian'
-        """
-        self.image_size = image_size
-        self.pixel_size_um = pixel_size_um  # 15 micrometers per pixel
+    """Radial beam profile derived from explicit physical parameters."""
+
+    def __init__(
+        self,
+        image_size=256,
+        pixel_size_um=15,
+        profile_type="gaussian",
+        half_intensity_radius_mm=4.0,
+    ):
+        self.image_size = int(image_size)
+        self.pixel_size_um = float(pixel_size_um)
         self.profile_type = profile_type
-        
-        # 物理参数
-        fiber_diameter_mm = 8.0  # 光纤直径
-        fiber_diameter_px = (fiber_diameter_mm * 1000) / pixel_size_um  # 转换为像素
-        
-        # 生成强度分布 (在mm中计算)
-        center = image_size / 2
-        y, x = np.ogrid[0:image_size, 0:image_size]
-        r_px = np.sqrt((x - center)**2 + (y - center)**2)
-        r_mm = r_px * pixel_size_um / 1000.0  # 转换为mm
-        
-        # 高斯剖面: 在4mm处应为50%强度
-        # I(r) = exp(-(r/σ)²), 要求 I(4mm) = 0.5
-        # 0.5 = exp(-(4/σ)²) => σ = 4/sqrt(ln(2)) ≈ 5.77 mm
-        sigma_mm = 4.0 / np.sqrt(np.log(2))  # ≈ 5.77 mm
-        
-        if profile_type == 'gaussian':
-            self.intensity = np.exp(-(r_mm / sigma_mm) ** 2)
-        else:  # supergaussian
-            # 超高斯: I(r) = exp(-(r/σ)⁴)
-            self.intensity = np.exp(-(r_mm / sigma_mm) ** 4)
-        
-        # 归一化到 [0, 1]
-        self.intensity = np.clip(self.intensity, 0, 1)
-        
-        print(f"✓ 光束剖面: {profile_type}, 光纤 {fiber_diameter_mm}mm ({fiber_diameter_px:.0f}px)")
-        print(f"  σ = {sigma_mm:.2f} mm, 4mm处强度 ≈ 50%")
-    
+        self.beam_half_intensity_radius_mm = float(half_intensity_radius_mm)
+        self.config = IlluminationConfig(
+            image_size=self.image_size,
+            pixel_size_um=self.pixel_size_um,
+            beam_half_intensity_radius_mm=self.beam_half_intensity_radius_mm,
+        )
+        self.pixel_size_mm = self.config.pixel_size_mm
+        self.field_width_mm = self.config.field_width_mm
+        self.sigma_mm = (
+            self.beam_half_intensity_radius_mm / np.sqrt(np.log(2.0))
+            if profile_type == "gaussian"
+            else self.beam_half_intensity_radius_mm / np.log(2.0) ** 0.25
+        )
+        self.intensity = gaussian_beam_profile(
+            self.image_size,
+            self.pixel_size_um,
+            self.beam_half_intensity_radius_mm,
+            profile_type=self.profile_type,
+        )
+
+        radius_px = self.beam_half_intensity_radius_mm * 1000.0 / self.pixel_size_um
+        print(
+            f"✓ 光束剖面: {profile_type}, 像素 {self.pixel_size_um:g} μm, "
+            f"场宽 {self.field_width_mm:.3f} mm"
+        )
+        print(
+            f"  半强度半径 = {self.beam_half_intensity_radius_mm:.2f} mm "
+            f"({radius_px:.1f} px), σ = {self.sigma_mm:.2f} mm"
+        )
+
+    def intensity_at_radius_mm(self, radius_mm):
+        """Analytical intensity used for physical checks, including out of frame."""
+        order = 2 if self.profile_type == "gaussian" else 4
+        return float(
+            np.exp(-((float(radius_mm) / self.sigma_mm) ** order))
+        )
+
     def get_intensity_at(self, y, x):
-        """获取指定位置的强度"""
-        y, x = min(int(y), self.image_size - 1), min(int(x), self.image_size - 1)
-        return self.intensity[y, x]
-    
+        """Get sampled intensity at a pixel coordinate (with safe clipping)."""
+        y = max(0, min(int(y), self.image_size - 1))
+        x = max(0, min(int(x), self.image_size - 1))
+        return float(self.intensity[y, x])
+
     def get_map(self):
         return self.intensity.copy()
-
 
 
 # ================================
@@ -959,8 +967,9 @@ def main():
     print("=" * 70)
     
     # 物理参数
-    pixel_size_um = 15  # 15 micrometers per pixel = 0.015 mm
-    image_size = 256
+    illumination_config = IlluminationConfig()
+    pixel_size_um = illumination_config.pixel_size_um
+    image_size = illumination_config.image_size
     
     # 1. 加载 Step 1 数据
     print("\n[1/6] 加载光谱资产...")
@@ -1012,6 +1021,10 @@ def main():
         'scene_shape': list(scene_hypercube.shape),
         'wavelength_range': [float(spectral_assets.wavelengths[0]), float(spectral_assets.wavelengths[-1])],
         'pixel_size_um': pixel_size_um,
+        'field_width_mm': illumination_config.field_width_mm,
+        'beam_half_intensity_radius_mm': illumination_config.beam_half_intensity_radius_mm,
+        'beam_sigma_mm': beam_profile.sigma_mm,
+        'pore_pitch_mm': illumination_config.pitch_mm,
         'num_pores': len(multi_pore_mask.get_pores()),
         'pore_grid': multi_pore_mask.grid_shape,
         'beam_profile_type': beam_profile.profile_type,
